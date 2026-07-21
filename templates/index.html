@@ -1,1 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Code Comparison Tool</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; margin: 0; padding: 2rem; color: #0f172a; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    h1 { margin-top: 0; color: #1e293b; }
+    textarea { width: 100%; height: 280px; font-family: 'Courier New', monospace; font-size: 14px; padding: 1rem; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; resize: vertical; }
+    button { background: #2563eb; color: white; border: none; padding: 0.75rem 1.5rem; font-size: 16px; font-weight: 600; border-radius: 6px; cursor: pointer; margin-top: 1rem; }
+    button:hover { background: #1d4ed8; }
+    #results { margin-top: 2rem; }
+    .status-pass { padding: 1rem; background: #dcfce7; color: #166534; border-radius: 6px; font-weight: 600; }
+    .status-fail { padding: 1rem; background: #fee2e2; color: #991b1b; border-radius: 6px; font-weight: 600; margin-bottom: 1rem; }
+    .error-card { background: #f8fafc; border-left: 4px solid #ef4444; padding: 1rem; margin-bottom: 0.75rem; border-radius: 0 6px 6px 0; font-family: monospace; }
+    .label { font-weight: bold; font-size: 12px; text-transform: uppercase; color: #64748b; }
+    .code-line { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; display: block; margin-top: 4px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Code Comparator</h1>
+    <p>Paste your input code below to verify it against the registered code base.</p>
+    
+    <textarea id="inputCode" placeholder="Paste your code here..."></textarea>
+    <button onclick="runComparison()">Compare Code</button>
 
+    <div id="results"></div>
+  </div>
+
+  <script>
+    async function runComparison() {
+      const code = document.getElementById("inputCode").value;
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = "<p>Analyzing...</p>";
+
+      try {
+        const response = await fetch("/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input_code: code })
+        });
+        const data = await response.json();
+
+        if (data.match) {
+          resultsDiv.innerHTML = `<div class="status-pass">✅ Match Success! The input code matches the registered code exactly.</div>`;
+        } else {
+          let html = `<div class="status-fail">⚠️ Discrepancies Found: (${data.errors.length} issue(s) detected)</div>`;
+          
+          data.errors.forEach((err, idx) => {
+            html += `<div class="error-card">
+              <span class="label">Issue #${idx + 1} (${err.type})</span>`;
+            if (err.expected) {
+              html += `<div><strong>Expected:</strong> <code class="code-line">${escapeHtml(err.expected)}</code></div>`;
+            }
+            if (err.found) {
+              html += `<div><strong>Found:</strong> <code class="code-line">${escapeHtml(err.found)}</code></div>`;
+            }
+            html += `</div>`;
+          });
+          
+          resultsDiv.innerHTML = html;
+        }
+      } catch (e) {
+        resultsDiv.innerHTML = `<p style="color:red">Failed to communicate with the comparison server.</p>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+  </script>
+</body>
+</html>
