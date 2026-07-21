@@ -55,28 +55,21 @@ if __name__ == "__main__":
 
 
 def normalize_code_lines(code_str: str):
-    """
-    Cleans up hidden non-breaking spaces (\xa0),
-    normalizes line endings, and trims surrounding whitespace.
-    """
+    """Normalize hidden characters, spaces, and linebreaks."""
     cleaned = code_str.replace('\xa0', ' ').replace('\r\n', '\n')
-    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
-    return lines
+    return [line.strip() for line in cleaned.splitlines() if line.strip()]
 
 
-def is_partial_match(reg_lines, sub_lines):
-    """
-    Checks if all contiguous lines in `sub_lines` exist in exact order
-    somewhere inside `reg_lines`.
-    """
-    if not sub_lines:
-        return False
-        
-    sub_len = len(sub_lines)
-    for i in range(len(reg_lines) - sub_len + 1):
-        if reg_lines[i : i + sub_len] == sub_lines:
-            return True
-    return False
+def find_best_matching_line(line, target_lines):
+    """Finds the line in target_lines that is most similar to `line`."""
+    best_ratio = 0.0
+    best_match = None
+    for target in target_lines:
+        ratio = difflib.SequenceMatcher(None, line, target).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = target
+    return best_match, best_ratio
 
 
 def analyze_differences(registered: str, submitted: str):
@@ -86,36 +79,36 @@ def analyze_differences(registered: str, submitted: str):
     if not sub_lines:
         return {"match": False, "errors": [{"type": "empty", "expected": "Some code", "found": "Empty input"}]}
 
-    # 1. First check if submitted code is an exact full match OR a valid partial snippet
-    if reg_lines == sub_lines or is_partial_match(reg_lines, sub_lines):
+    # Exact match check
+    if reg_lines == sub_lines:
         return {"match": True, "errors": []}
 
-    # 2. If it's not a match, run diff analysis to highlight differences
     errors = []
-    matcher = difflib.SequenceMatcher(None, reg_lines, sub_lines)
 
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == 'replace':
-            for orig, inp in zip(reg_lines[i1:i2], sub_lines[j1:j2]):
-                errors.append({
-                    "type": "mismatch",
-                    "expected": orig,
-                    "found": inp
-                })
-        elif tag == 'delete':
-            for orig in reg_lines[i1:i2]:
-                errors.append({
-                    "type": "missing",
-                    "expected": orig,
-                    "found": None
-                })
-        elif tag == 'insert':
-            for inp in sub_lines[j1:j2]:
-                errors.append({
-                    "type": "extra",
-                    "expected": None,
-                    "found": inp
-                })
+    # Check each submitted line individually against registered code
+    for sub_line in sub_lines:
+        if sub_line in reg_lines:
+            continue  # Line exists in registered code perfectly!
+
+        # If line doesn't match, find the closest expected line in registered code
+        best_expected, score = find_best_matching_line(sub_line, reg_lines)
+
+        if best_expected and score > 0.4:
+            errors.append({
+                "type": "mismatch",
+                "expected": best_expected,
+                "found": sub_line
+            })
+        else:
+            errors.append({
+                "type": "extra",
+                "expected": None,
+                "found": sub_line
+            })
+
+    # If no errors were generated for submitted lines, it's a successful partial match
+    if not errors:
+        return {"match": True, "errors": []}
 
     return {"match": False, "errors": errors}
 
