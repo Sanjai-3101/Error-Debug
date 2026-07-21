@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Your registered reference code
+# Updated registered reference code
 REGISTERED_CODE = '''import os, re, urllib.parse, urllib.request
 from flask import Flask, abort, jsonify, render_template, request
 
@@ -101,6 +101,5 @@ def compare():
     return jsonify(result)
 
 if __name__ == "__main__":
-    # Render binds the app to PORT env variable automatically
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port)
