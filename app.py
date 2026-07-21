@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Updated registered reference code
-REGISTERED_CODE = '''import os, re, urllib.parse, urllib.request
+# Raw string prevents backslash and quotation escaping issues
+REGISTERED_CODE = r'''import os, re, urllib.parse, urllib.request
 from flask import Flask, abort, jsonify, render_template, request
 
 app = Flask(__name__)
@@ -53,9 +53,23 @@ def ai_agent_router():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))'''
 
+
+def sanitize_and_split(code_str: str):
+    """
+    Cleans code input by:
+    - Removing non-breaking spaces (\xa0) from copy-pasting
+    - Normalizing CRLF (\r\n) line breaks
+    - Stripping trailing whitespace per line
+    - Removing blank lines
+    """
+    cleaned = code_str.replace('\xa0', ' ').replace('\r\n', '\n')
+    lines = [line.rstrip() for line in cleaned.splitlines() if line.strip()]
+    return lines
+
+
 def analyze_differences(registered: str, submitted: str):
-    reg_lines = registered.splitlines()
-    sub_lines = submitted.splitlines()
+    reg_lines = sanitize_and_split(registered)
+    sub_lines = sanitize_and_split(submitted)
 
     if reg_lines == sub_lines:
         return {"match": True, "errors": []}
@@ -88,9 +102,11 @@ def analyze_differences(registered: str, submitted: str):
 
     return {"match": False, "errors": errors}
 
+
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
+
 
 @app.route("/compare", methods=["POST"])
 def compare():
@@ -99,6 +115,7 @@ def compare():
     
     result = analyze_differences(REGISTERED_CODE, input_code)
     return jsonify(result)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
