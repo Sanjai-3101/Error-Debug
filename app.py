@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Registered code baseline
+# Registered baseline code to compare against
 REGISTERED_CODE = r'''import os, re, urllib.parse, urllib.request
 from flask import Flask, abort, jsonify, render_template, request
 
@@ -54,59 +54,52 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))'''
 
 
-def normalize_code_lines(code_str: str):
-    """Normalize hidden characters, spaces, and linebreaks."""
-    cleaned = code_str.replace('\xa0', ' ').replace('\r\n', '\n')
-    return [line.strip() for line in cleaned.splitlines() if line.strip()]
-
-
-def find_best_matching_line(line, target_lines):
-    """Finds the line in target_lines that is most similar to `line`."""
-    best_ratio = 0.0
-    best_match = None
-    for target in target_lines:
-        ratio = difflib.SequenceMatcher(None, line, target).ratio()
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_match = target
-    return best_match, best_ratio
-
-
 def analyze_differences(registered: str, submitted: str):
-    reg_lines = normalize_code_lines(registered)
-    sub_lines = normalize_code_lines(submitted)
+    reg_clean = [l.strip() for l in registered.replace('\xa0', ' ').replace('\r\n', '\n').splitlines() if l.strip()]
+    
+    # Split raw submitted input to preserve exact user line numbers
+    raw_sub_lines = submitted.replace('\xa0', ' ').replace('\r\n', '\n').splitlines()
 
-    if not sub_lines:
-        return {"match": False, "errors": [{"type": "empty", "expected": "Some code", "found": "Empty input"}]}
+    if not any(l.strip() for l in raw_sub_lines):
+        return {"match": False, "errors": [{"type": "empty", "expected": "Code snippet", "found": "Empty input", "line_no": None}]}
 
-    # Exact match check
-    if reg_lines == sub_lines:
+    sub_clean = [l.strip() for l in raw_sub_lines if l.strip()]
+
+    if reg_clean == sub_clean:
         return {"match": True, "errors": []}
 
     errors = []
 
-    # Check each submitted line individually against registered code
-    for sub_line in sub_lines:
-        if sub_line in reg_lines:
-            continue  # Line exists in registered code perfectly!
+    # Map errors directly to the exact line number in the user editor
+    for line_idx, raw_line in enumerate(raw_sub_lines, start=1):
+        clean_line = raw_line.strip()
+        if not clean_line or clean_line in reg_clean:
+            continue
 
-        # If line doesn't match, find the closest expected line in registered code
-        best_expected, score = find_best_matching_line(sub_line, reg_lines)
+        # Find closest match in registered code
+        best_match = None
+        best_ratio = 0.0
+        for reg_line in reg_clean:
+            ratio = difflib.SequenceMatcher(None, clean_line, reg_line).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_match = reg_line
 
-        if best_expected and score > 0.4:
+        if best_match and best_ratio > 0.4:
             errors.append({
                 "type": "mismatch",
-                "expected": best_expected,
-                "found": sub_line
+                "line_no": line_idx,
+                "expected": best_match,
+                "found": clean_line
             })
         else:
             errors.append({
                 "type": "extra",
+                "line_no": line_idx,
                 "expected": None,
-                "found": sub_line
+                "found": clean_line
             })
 
-    # If no errors were generated for submitted lines, it's a successful partial match
     if not errors:
         return {"match": True, "errors": []}
 
