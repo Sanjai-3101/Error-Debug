@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Raw string prevents backslash and quotation escaping issues
+# Registered code baseline
 REGISTERED_CODE = r'''import os, re, urllib.parse, urllib.request
 from flask import Flask, abort, jsonify, render_template, request
 
@@ -54,26 +54,43 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))'''
 
 
-def sanitize_and_split(code_str: str):
+def normalize_code_lines(code_str: str):
     """
-    Cleans code input by:
-    - Removing non-breaking spaces (\xa0) from copy-pasting
-    - Normalizing CRLF (\r\n) line breaks
-    - Stripping trailing whitespace per line
-    - Removing blank lines
+    Cleans up hidden non-breaking spaces (\xa0),
+    normalizes line endings, and trims surrounding whitespace.
     """
     cleaned = code_str.replace('\xa0', ' ').replace('\r\n', '\n')
-    lines = [line.rstrip() for line in cleaned.splitlines() if line.strip()]
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
     return lines
 
 
-def analyze_differences(registered: str, submitted: str):
-    reg_lines = sanitize_and_split(registered)
-    sub_lines = sanitize_and_split(submitted)
+def is_partial_match(reg_lines, sub_lines):
+    """
+    Checks if all contiguous lines in `sub_lines` exist in exact order
+    somewhere inside `reg_lines`.
+    """
+    if not sub_lines:
+        return False
+        
+    sub_len = len(sub_lines)
+    for i in range(len(reg_lines) - sub_len + 1):
+        if reg_lines[i : i + sub_len] == sub_lines:
+            return True
+    return False
 
-    if reg_lines == sub_lines:
+
+def analyze_differences(registered: str, submitted: str):
+    reg_lines = normalize_code_lines(registered)
+    sub_lines = normalize_code_lines(submitted)
+
+    if not sub_lines:
+        return {"match": False, "errors": [{"type": "empty", "expected": "Some code", "found": "Empty input"}]}
+
+    # 1. First check if submitted code is an exact full match OR a valid partial snippet
+    if reg_lines == sub_lines or is_partial_match(reg_lines, sub_lines):
         return {"match": True, "errors": []}
 
+    # 2. If it's not a match, run diff analysis to highlight differences
     errors = []
     matcher = difflib.SequenceMatcher(None, reg_lines, sub_lines)
 
