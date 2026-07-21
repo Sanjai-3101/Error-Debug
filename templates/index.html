@@ -31,7 +31,7 @@
     }
 
     header {
-      padding: 1.5rem 2rem;
+      padding: 1.25rem 2rem;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
@@ -47,8 +47,8 @@
     }
 
     .brand-logo {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
       border-radius: 8px;
       display: flex;
@@ -60,7 +60,7 @@
     }
 
     .brand-title {
-      font-size: 1.4rem;
+      font-size: 1.35rem;
       font-weight: 700;
       letter-spacing: -0.5px;
       background: linear-gradient(90deg, #fff, var(--text-muted));
@@ -69,12 +69,12 @@
     }
 
     .container {
-      max-width: 1300px;
+      max-width: 1350px;
       width: 100%;
       margin: 2rem auto;
       padding: 0 1.5rem;
       display: grid;
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: 1fr 400px;
       gap: 1.5rem;
       flex-grow: 1;
     }
@@ -115,23 +115,24 @@
       line-height: 1.6;
       background: #0d1117;
       overflow: hidden;
-      min-height: 480px;
+      min-height: 520px;
     }
 
     .line-numbers {
-      width: 50px;
+      width: 55px;
       padding: 1rem 0;
       background: #161b22;
       border-right: 1px solid var(--border-color);
       color: var(--text-muted);
       text-align: right;
       user-select: none;
+      overflow: hidden;
     }
 
     .line-number {
       padding-right: 12px;
-      height: 22.4px; /* Matches line-height */
-      transition: color 0.2s;
+      height: 22.4px; /* Matches exact editor line-height */
+      transition: color 0.2s, background 0.2s;
     }
 
     .line-number.has-error {
@@ -199,7 +200,7 @@
       padding: 1.25rem;
       flex-grow: 1;
       overflow-y: auto;
-      max-height: 520px;
+      max-height: 560px;
     }
 
     .status-badge {
@@ -240,8 +241,8 @@
       color: var(--error-red);
       font-weight: 600;
       text-transform: uppercase;
-      font-size: 0.75rem;
-      margin-bottom: 0.4rem;
+      font-size: 0.78rem;
+      margin-bottom: 0.5rem;
     }
 
     .code-diff {
@@ -291,7 +292,7 @@
 
       <div class="results-card">
         <div id="resultsContainer">
-          <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Run inspection to highlight discrepancies.</p>
+          <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-top: 2rem;">Run inspection to view discrepancies.</p>
         </div>
       </div>
     </div>
@@ -350,9 +351,11 @@
           `;
 
           data.errors.forEach((err, idx) => {
+            const lineText = err.line_no ? `(LINE ${err.line_no})` : '';
+
             html += `
               <div class="issue-item">
-                <div class="issue-tag">Issue #${idx + 1} ${err.line_no ? `(Line ${err.line_no})` : ''} - ${err.type}</div>
+                <div class="issue-tag">ISSUE #${idx + 1} ${lineText} - ${err.type.toUpperCase()}</div>
                 ${err.expected ? `<div><span style="color: var(--text-muted)">Expected:</span> <div class="code-diff diff-expected">${escapeHtml(err.expected)}</div></div>` : ''}
                 ${err.found ? `<div><span style="color: var(--text-muted)">Found:</span> <div class="code-diff diff-found">${escapeHtml(err.found)}</div></div>` : ''}
               </div>
@@ -370,7 +373,7 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Initialize line numbers on page load
+    // Initial load
     updateLineNumbers();
   </script>
 </body>
